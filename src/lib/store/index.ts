@@ -1,6 +1,7 @@
 // ストアのディスパッチ。
 // DATABASE_URL があれば Postgres、無ければローカルのファイルストア（デモ）を使う。
 import type { JournalEntry, EntryPatch, OutlookEventInput } from "../types";
+import type { SearchResult } from "../search";
 
 export const usePostgres = !!process.env.DATABASE_URL;
 
@@ -21,6 +22,7 @@ type Backend = {
     year: number,
     month: number,
   ): Promise<Record<string, boolean>>;
+  searchEntries(userId: string, query: string): Promise<SearchResult[]>;
 };
 
 async function backend(): Promise<Backend> {
@@ -50,4 +52,7 @@ export async function getMonthSummary(
   month: number,
 ) {
   return (await backend()).getMonthSummary(userId, year, month);
+}
+export async function searchEntries(userId: string, query: string) {
+  return (await backend()).searchEntries(userId, query);
 }

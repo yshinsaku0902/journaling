@@ -1,7 +1,7 @@
 // 本番用ストア（Vercel Postgres / Neon）。DATABASE_URL 設定時に使用。
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { and, eq, inArray, like } from "drizzle-orm";
+import { and, eq, inArray, like, or, ilike, desc } from "drizzle-orm";
 import { entries, journalItems, scheduleItems } from "@/db/schema";
 import type {
   JournalEntry,
@@ -11,6 +11,7 @@ import type {
 } from "../types";
 import { emptyEntry } from "../types";
 import { mergeOutlookEvents } from "../schedule";
+import { searchInEntry, type SearchResult } from "../search";
 
 type DrizzleDb = ReturnType<typeof drizzle>;
 let _db: DrizzleDb | null = null;
@@ -197,4 +198,52 @@ export async function getMonthSummary(
     }
   }
   return out;
+}
+
+// LIKE のワイルドカード（% _ \）をエスケープして部分一致パターンにする。
+function likePattern(query: string): string {
+  const escaped = query.replace(/[\\%_]/g, (c) => `\\${c}`);
+  return `%${escaped}%`;
+}
+
+export async function searchEntries(
+  userId: string,
+  query: string,
+): Promise<SearchResult[]> {
+  const q = query.trim();
+  if (!q) return [];
+
+  const d = db();
+  const pat = likePattern(q);
+  const es = await d
+    .select()
+    .from(entries)
+    .where(
+      and(
+        eq(entries.userId, userId),
+        or(
+          ilike(entries.mostImportantGoal, pat),
+          ilike(entries.dailyQuote, pat),
+          ilike(entries.memo, pat),
+        ),
+      ),
+    )
+    .orderBy(desc(entries.date));
+
+  const results: SearchResult[] = [];
+  for (const e of es) {
+    // 検索対象は自由記述の3列のみなので items/schedule は空で十分。
+    const entry: JournalEntry = {
+      date: e.date,
+      mostImportantGoal: e.mostImportantGoal,
+      dailyQuote: e.dailyQuote,
+      memo: e.memo,
+      items: [],
+      schedule: [],
+      updatedAt: e.updatedAt.toISOString(),
+    };
+    const hits = searchInEntry(entry, q);
+    if (hits.length) results.push({ date: e.date, hits });
+  }
+  return results;
 }

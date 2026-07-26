@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/session";
 import { getMonthSummary } from "@/lib/store";
 import { SignInPrompt } from "@/components/SignInPrompt";
+import { SearchBox } from "@/components/SearchBox";
 import {
   todayJst,
   ymOf,
@@ -39,6 +40,10 @@ export default async function Home({
         <h1 className="text-lg font-bold text-navy">ジャーナル手帳</h1>
         <span className="text-xs text-gray-500">{user.name}</span>
       </header>
+
+      <div className="mt-3">
+        <SearchBox />
+      </div>
 
       <section className="mt-4 bg-white rounded-2xl shadow-sm border border-rule p-4">
         <div className="flex items-center justify-between">

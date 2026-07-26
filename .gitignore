@@ -20,6 +20,7 @@
 *.pem
 npm-debug.log*
 next-env.d.ts
+*.tsbuildinfo
 
 # harness transient files
 .claude/*.lock
