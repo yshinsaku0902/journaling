@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: #efe9dd;
+  background-image: radial-gradient(
+      circle at 1px 1px,
+      rgba(0, 0, 0, 0.03) 1px,
+      transparent 0
+    );
+  background-size: 22px 22px;
+  color: #1f2937;
+  -webkit-font-smoothing: antialiased;
+  font-family:
+    "Yu Gothic", "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo,
+    system-ui, sans-serif;
+}
+
+/* テキスト入力の共通見た目（手帳の記入欄っぽく下線） */
+.field-line {
+  @apply w-full bg-transparent outline-none border-b border-rule py-1 focus:border-navy transition-colors;
+}
+
+textarea {
+  resize: vertical;
+}
+
+/* iOSでinputズームを防ぐ最低フォントサイズ */
+input,
+textarea,
+select,
+button {
+  font-size: 16px;
+}

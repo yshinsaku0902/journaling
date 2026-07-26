@@ -1,0 +1,20 @@
+{
+  "name": "ジャーナル手帳",
+  "short_name": "ジャーナル",
+  "description": "毎朝のジャーナリングを、Outlookの予定つきで。",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#efe9dd",
+  "theme_color": "#243b53",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
