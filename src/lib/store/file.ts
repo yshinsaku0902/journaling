@@ -5,6 +5,7 @@ import path from "path";
 import type { JournalEntry, EntryPatch, OutlookEventInput } from "../types";
 import { emptyEntry } from "../types";
 import { mergeOutlookEvents, entryHasContent } from "../schedule";
+import { searchInEntry, type SearchResult } from "../search";
 
 const DATA_DIR = path.join(process.cwd(), ".data");
 const DATA_FILE = path.join(DATA_DIR, "journal.json");
@@ -95,4 +96,22 @@ export async function getMonthSummary(
     if (date.startsWith(prefix) && entryHasContent(entry)) out[date] = true;
   }
   return out;
+}
+
+export async function searchEntries(
+  userId: string,
+  query: string,
+): Promise<SearchResult[]> {
+  const q = query.trim();
+  if (!q) return [];
+
+  const db = await readDb();
+  const user = db[userId] ?? {};
+  const results: SearchResult[] = [];
+  for (const [date, entry] of Object.entries(user)) {
+    const hits = searchInEntry(entry, q);
+    if (hits.length) results.push({ date, hits });
+  }
+  results.sort((a, b) => b.date.localeCompare(a.date));
+  return results;
 }
