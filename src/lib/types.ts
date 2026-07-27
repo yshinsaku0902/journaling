@@ -36,6 +36,8 @@ export interface JournalEntry {
   mostImportantGoal: string; // 今日の最重点目標
   dailyQuote: string; // 名言（任意）
   memo: string; // MEMO
+  runningDistanceKm: number | null; // 当日のランニング距離（km・未記録は null）
+  weightKg: number | null; // 当日の体重（kg・未記録は null）
   items: JournalItem[]; // メイン記入欄
   schedule: ScheduleItem[]; // 時間軸
   updatedAt: string; // ISO
@@ -44,7 +46,13 @@ export interface JournalEntry {
 // クライアントから保存時に送るペイロード（date/updatedAt を除く）
 export type EntryPatch = Pick<
   JournalEntry,
-  "mostImportantGoal" | "dailyQuote" | "memo" | "items" | "schedule"
+  | "mostImportantGoal"
+  | "dailyQuote"
+  | "memo"
+  | "runningDistanceKm"
+  | "weightKg"
+  | "items"
+  | "schedule"
 >;
 
 // Outlook(Graph) から取り込むイベントの入力形
@@ -61,6 +69,8 @@ export function emptyEntry(date: string): JournalEntry {
     mostImportantGoal: "",
     dailyQuote: "",
     memo: "",
+    runningDistanceKm: null,
+    weightKg: null,
     items: [],
     schedule: [],
     updatedAt: new Date().toISOString(),

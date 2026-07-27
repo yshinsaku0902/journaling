@@ -6,11 +6,14 @@ import type { JournalEntry, EntryPatch, OutlookEventInput } from "../types";
 import { emptyEntry } from "../types";
 import { mergeOutlookEvents, entryHasContent } from "../schedule";
 import { searchInEntry, type SearchResult } from "../search";
+import { monthlyKmForYear, type MonthStats } from "../stats";
 
 const DATA_DIR = path.join(process.cwd(), ".data");
 const DATA_FILE = path.join(DATA_DIR, "journal.json");
+const GOALS_FILE = path.join(DATA_DIR, "goals.json");
 
 type DB = Record<string, Record<string, JournalEntry>>; // userId -> date -> entry
+type GoalDB = Record<string, Record<string, number>>; // userId -> ym -> km
 
 async function readDb(): Promise<DB> {
   try {
@@ -26,6 +29,20 @@ async function writeDb(db: DB): Promise<void> {
   await fs.writeFile(DATA_FILE, JSON.stringify(db, null, 2), "utf8");
 }
 
+async function readGoals(): Promise<GoalDB> {
+  try {
+    const raw = await fs.readFile(GOALS_FILE, "utf8");
+    return JSON.parse(raw) as GoalDB;
+  } catch {
+    return {};
+  }
+}
+
+async function writeGoals(db: GoalDB): Promise<void> {
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.writeFile(GOALS_FILE, JSON.stringify(db, null, 2), "utf8");
+}
+
 // 書き込みの競合を避ける簡易ミューテックス
 let queue: Promise<unknown> = Promise.resolve();
 function withLock<T>(fn: () => Promise<T>): Promise<T> {
@@ -39,7 +56,10 @@ export async function getEntry(
   date: string,
 ): Promise<JournalEntry> {
   const db = await readDb();
-  return db[userId]?.[date] ?? emptyEntry(date);
+  const stored = db[userId]?.[date];
+  if (!stored) return emptyEntry(date);
+  // 旧データに無い新フィールド（距離・体重）を既定値で補う。
+  return { ...emptyEntry(date), ...stored };
 }
 
 export async function saveEntry(
@@ -54,6 +74,8 @@ export async function saveEntry(
       mostImportantGoal: patch.mostImportantGoal,
       dailyQuote: patch.dailyQuote,
       memo: patch.memo,
+      runningDistanceKm: patch.runningDistanceKm,
+      weightKg: patch.weightKg,
       items: patch.items,
       schedule: patch.schedule,
       updatedAt: new Date().toISOString(),
@@ -83,19 +105,63 @@ export async function importOutlook(
   });
 }
 
-export async function getMonthSummary(
+export async function getMonthStats(
   userId: string,
   year: number,
   month: number,
-): Promise<Record<string, boolean>> {
+): Promise<MonthStats> {
   const db = await readDb();
   const user = db[userId] ?? {};
   const prefix = `${year}-${String(month).padStart(2, "0")}-`;
-  const out: Record<string, boolean> = {};
+  const content: Record<string, boolean> = {};
+  const distanceByDate: Record<string, number> = {};
   for (const [date, entry] of Object.entries(user)) {
-    if (date.startsWith(prefix) && entryHasContent(entry)) out[date] = true;
+    if (!date.startsWith(prefix)) continue;
+    if (entryHasContent(entry)) content[date] = true;
+    const km = entry.runningDistanceKm;
+    if (typeof km === "number" && km > 0) distanceByDate[date] = km;
   }
-  return out;
+  return { content, distanceByDate };
+}
+
+export async function getYearDistances(
+  userId: string,
+  year: number,
+): Promise<number[]> {
+  const db = await readDb();
+  const user = db[userId] ?? {};
+  const rows = Object.entries(user).map(([date, entry]) => ({
+    date,
+    km: entry.runningDistanceKm ?? null,
+  }));
+  return monthlyKmForYear(rows, year);
+}
+
+export async function getMonthlyGoal(
+  userId: string,
+  ym: string,
+): Promise<number | null> {
+  const goals = await readGoals();
+  const km = goals[userId]?.[ym];
+  return typeof km === "number" ? km : null;
+}
+
+export async function setMonthlyGoal(
+  userId: string,
+  ym: string,
+  km: number | null,
+): Promise<number | null> {
+  return withLock(async () => {
+    const goals = await readGoals();
+    const forUser = (goals[userId] ??= {});
+    if (km === null) {
+      delete forUser[ym];
+    } else {
+      forUser[ym] = km;
+    }
+    await writeGoals(goals);
+    return km;
+  });
 }
 
 export async function searchEntries(
