@@ -19,6 +19,15 @@ function clampInt(v: unknown, min: number, max: number, fallback = 0): number {
   return Math.min(max, Math.max(min, n));
 }
 
+// 未記録(null/空)を許容する数値。範囲内にクランプし小数1桁に丸める。
+export function nullableNum(v: unknown, min: number, max: number): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = typeof v === "number" ? v : Number(v);
+  if (Number.isNaN(n)) return null;
+  const clamped = Math.min(max, Math.max(min, n));
+  return Math.round(clamped * 10) / 10;
+}
+
 function toItem(v: unknown, idx: number): JournalItem {
   const o = (v ?? {}) as Record<string, unknown>;
   return {
@@ -59,6 +68,8 @@ export function toEntryPatch(body: unknown): EntryPatch {
     mostImportantGoal: str(o.mostImportantGoal, 500),
     dailyQuote: str(o.dailyQuote, 500),
     memo: str(o.memo, 4000),
+    runningDistanceKm: nullableNum(o.runningDistanceKm, 0, 200),
+    weightKg: nullableNum(o.weightKg, 0, 500),
     items: items.slice(0, 200).map(toItem),
     schedule: schedule.slice(0, 200).map(toSchedule),
   };

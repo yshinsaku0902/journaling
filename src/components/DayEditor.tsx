@@ -41,6 +41,17 @@ function hhmmToMinutes(v: string): number {
 }
 const newId = () => globalThis.crypto.randomUUID();
 
+// 数値フィールド（距離・体重）と入力欄の文字列の相互変換
+function numToInput(n: number | null): string {
+  return n == null ? "" : String(n);
+}
+function inputToNum(s: string): number | null {
+  const t = s.trim();
+  if (t === "") return null;
+  const n = Number(t);
+  return Number.isNaN(n) ? null : n;
+}
+
 export function DayEditor(props: Props) {
   const { date, initialEntry, prevDate, nextDate, isToday, dayNumber, parts } =
     props;
@@ -48,6 +59,10 @@ export function DayEditor(props: Props) {
   const [goal, setGoal] = useState(initialEntry.mostImportantGoal);
   const [quote, setQuote] = useState(initialEntry.dailyQuote);
   const [memo, setMemo] = useState(initialEntry.memo);
+  const [distance, setDistance] = useState(
+    numToInput(initialEntry.runningDistanceKm),
+  );
+  const [weight, setWeight] = useState(numToInput(initialEntry.weightKg));
   const [items, setItems] = useState<JournalItem[]>(initialEntry.items);
   const [schedule, setSchedule] = useState<ScheduleItem[]>(
     initialEntry.schedule,
@@ -67,6 +82,8 @@ export function DayEditor(props: Props) {
         mostImportantGoal: goal,
         dailyQuote: quote,
         memo,
+        runningDistanceKm: inputToNum(distance),
+        weightKg: inputToNum(weight),
         items,
         schedule,
       };
@@ -94,7 +111,7 @@ export function DayEditor(props: Props) {
     }, 800);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [goal, quote, memo, items, schedule]);
+  }, [goal, quote, memo, distance, weight, items, schedule]);
 
   // ---- Outlook 取り込み ----
   async function handleImport(auto = false) {
@@ -247,7 +264,47 @@ export function DayEditor(props: Props) {
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         {/* ===== 左ページ：振り返り・目標 ===== */}
         <section className="bg-white rounded-2xl shadow-sm border border-rule p-4">
-          <label className="block text-xs font-medium text-gray-500">
+          {/* 健康記録（ランニング距離・体重） */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500">
+                ランニング距離
+              </label>
+              <div className="mt-1 flex items-baseline gap-1">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.1"
+                  min="0"
+                  value={distance}
+                  onChange={(e) => setDistance(e.target.value)}
+                  placeholder="0.0"
+                  className="w-full rounded-lg border border-rule focus:border-navy bg-transparent px-3 py-2 text-lg font-bold tabular-nums outline-none transition"
+                />
+                <span className="shrink-0 text-xs text-gray-400">km</span>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500">
+                体重
+              </label>
+              <div className="mt-1 flex items-baseline gap-1">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.1"
+                  min="0"
+                  value={weight}
+                  onChange={(e) => setWeight(e.target.value)}
+                  placeholder="0.0"
+                  className="w-full rounded-lg border border-rule focus:border-navy bg-transparent px-3 py-2 text-lg font-bold tabular-nums outline-none transition"
+                />
+                <span className="shrink-0 text-xs text-gray-400">kg</span>
+              </div>
+            </div>
+          </div>
+
+          <label className="mt-5 block text-xs font-medium text-gray-500">
             今日の最重点目標
           </label>
           <input
@@ -370,7 +427,7 @@ export function DayEditor(props: Props) {
       </div>
 
       <p className="mt-6 text-center text-[11px] text-gray-400">
-        健康管理・お金の管理は今後のアップデートで追加予定です。
+        お金の管理は今後のアップデートで追加予定です。
       </p>
     </main>
   );

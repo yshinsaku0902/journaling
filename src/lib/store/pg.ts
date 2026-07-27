@@ -2,7 +2,12 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { and, eq, inArray, like, or, ilike, desc } from "drizzle-orm";
-import { entries, journalItems, scheduleItems } from "@/db/schema";
+import {
+  entries,
+  journalItems,
+  scheduleItems,
+  monthlyGoals,
+} from "@/db/schema";
 import type {
   JournalEntry,
   EntryPatch,
@@ -12,6 +17,7 @@ import type {
 import { emptyEntry } from "../types";
 import { mergeOutlookEvents } from "../schedule";
 import { searchInEntry, type SearchResult } from "../search";
+import { monthlyKmForYear, type MonthStats } from "../stats";
 
 type DrizzleDb = ReturnType<typeof drizzle>;
 let _db: DrizzleDb | null = null;
@@ -54,6 +60,8 @@ export async function getEntry(
     mostImportantGoal: e.mostImportantGoal,
     dailyQuote: e.dailyQuote,
     memo: e.memo,
+    runningDistanceKm: e.runningDistanceKm,
+    weightKg: e.weightKg,
     items: items.map((i) => ({
       id: String(i.id),
       text: i.text,
@@ -89,6 +97,8 @@ export async function saveEntry(
       mostImportantGoal: patch.mostImportantGoal,
       dailyQuote: patch.dailyQuote,
       memo: patch.memo,
+      runningDistanceKm: patch.runningDistanceKm,
+      weightKg: patch.weightKg,
       updatedAt: now,
     })
     .onConflictDoUpdate({
@@ -97,6 +107,8 @@ export async function saveEntry(
         mostImportantGoal: patch.mostImportantGoal,
         dailyQuote: patch.dailyQuote,
         memo: patch.memo,
+        runningDistanceKm: patch.runningDistanceKm,
+        weightKg: patch.weightKg,
         updatedAt: now,
       },
     })
@@ -146,23 +158,25 @@ export async function importOutlook(
     mostImportantGoal: existing.mostImportantGoal,
     dailyQuote: existing.dailyQuote,
     memo: existing.memo,
+    runningDistanceKm: existing.runningDistanceKm,
+    weightKg: existing.weightKg,
     items: existing.items,
     schedule,
   });
 }
 
-export async function getMonthSummary(
+export async function getMonthStats(
   userId: string,
   year: number,
   month: number,
-): Promise<Record<string, boolean>> {
+): Promise<MonthStats> {
   const d = db();
   const prefix = `${year}-${String(month).padStart(2, "0")}-`;
   const es = await d
     .select()
     .from(entries)
     .where(and(eq(entries.userId, userId), like(entries.date, `${prefix}%`)));
-  if (!es.length) return {};
+  if (!es.length) return { content: {}, distanceByDate: {} };
 
   const ids = es.map((e) => e.id);
   const byId = new Map(es.map((e) => [e.id, e]));
@@ -175,29 +189,80 @@ export async function getMonthSummary(
     .from(scheduleItems)
     .where(inArray(scheduleItems.entryId, ids));
 
-  const out: Record<string, boolean> = {};
+  const content: Record<string, boolean> = {};
+  const distanceByDate: Record<string, number> = {};
   for (const e of es) {
     if (e.mostImportantGoal.trim() || e.memo.trim() || e.dailyQuote.trim()) {
-      out[e.date] = true;
+      content[e.date] = true;
+    }
+    if (typeof e.runningDistanceKm === "number" && e.runningDistanceKm > 0) {
+      distanceByDate[e.date] = e.runningDistanceKm;
     }
   }
   for (const it of its) {
     if (it.text.trim()) {
       const e = byId.get(it.entryId);
-      if (e) out[e.date] = true;
+      if (e) content[e.date] = true;
     }
   }
   for (const s of scs) {
-    const content =
+    const has =
       s.source === "manual"
         ? s.title.trim() || s.resultNote.trim()
         : s.resultNote.trim();
-    if (content) {
+    if (has) {
       const e = byId.get(s.entryId);
-      if (e) out[e.date] = true;
+      if (e) content[e.date] = true;
     }
   }
-  return out;
+  return { content, distanceByDate };
+}
+
+export async function getYearDistances(
+  userId: string,
+  year: number,
+): Promise<number[]> {
+  const d = db();
+  const rows = await d
+    .select({ date: entries.date, km: entries.runningDistanceKm })
+    .from(entries)
+    .where(and(eq(entries.userId, userId), like(entries.date, `${year}-%`)));
+  return monthlyKmForYear(rows, year);
+}
+
+export async function getMonthlyGoal(
+  userId: string,
+  ym: string,
+): Promise<number | null> {
+  const d = db();
+  const [row] = await d
+    .select()
+    .from(monthlyGoals)
+    .where(and(eq(monthlyGoals.userId, userId), eq(monthlyGoals.ym, ym)))
+    .limit(1);
+  return row ? row.distanceGoalKm : null;
+}
+
+export async function setMonthlyGoal(
+  userId: string,
+  ym: string,
+  km: number | null,
+): Promise<number | null> {
+  const d = db();
+  if (km === null) {
+    await d
+      .delete(monthlyGoals)
+      .where(and(eq(monthlyGoals.userId, userId), eq(monthlyGoals.ym, ym)));
+    return null;
+  }
+  await d
+    .insert(monthlyGoals)
+    .values({ userId, ym, distanceGoalKm: km, updatedAt: new Date() })
+    .onConflictDoUpdate({
+      target: [monthlyGoals.userId, monthlyGoals.ym],
+      set: { distanceGoalKm: km, updatedAt: new Date() },
+    });
+  return km;
 }
 
 // LIKE のワイルドカード（% _ \）をエスケープして部分一致パターンにする。
@@ -238,6 +303,8 @@ export async function searchEntries(
       mostImportantGoal: e.mostImportantGoal,
       dailyQuote: e.dailyQuote,
       memo: e.memo,
+      runningDistanceKm: e.runningDistanceKm,
+      weightKg: e.weightKg,
       items: [],
       schedule: [],
       updatedAt: e.updatedAt.toISOString(),
