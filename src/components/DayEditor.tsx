@@ -27,6 +27,20 @@ interface Props {
 type SaveState = "idle" | "pending" | "saving" | "saved" | "error";
 
 const HOURS = Array.from({ length: 20 }, (_, i) => 5 + i); // 5:00〜24:00
+const HOUR_MIN = HOURS[0]; // 5
+const HOUR_MAX = HOURS[HOURS.length - 1]; // 24
+const LANE_STEP = 7; // px: 時間またぎ帯の横方向の間隔
+const BAR_WIDTH = 4; // px: 帯の太さ
+
+// 右ページの「行動予定」で、時間をまたぐ予定を縦帯として可視化するためのデータ。
+interface SpanBar {
+  id: string;
+  lane: number; // 同時間帯に並ぶ場合の横位置
+  startHour: number; // 帯の先頭（この時間の行で上端を丸める）
+  endHour: number; // 帯の末尾（この時間の行で下端を丸める）
+  color: string;
+  label: string; // ホバー時のツールチップ
+}
 
 function pad(n: number) {
   return String(n).padStart(2, "0");
@@ -200,6 +214,52 @@ export function DayEditor(props: Props) {
     return map;
   }, [schedule]);
 
+  // 時間をまたぐ予定（例: 14:00〜16:00）を各時間の行に縦帯として描画するための情報。
+  // 終了時刻があり、かつ複数の時間にまたがる予定だけを対象にする。
+  const { barsByHour, laneCount } = useMemo(() => {
+    const spans = schedule
+      .filter(
+        (s): s is ScheduleItem & { endMinutes: number } =>
+          s.endMinutes != null && s.endMinutes > s.startMinutes,
+      )
+      .map((s) => ({
+        item: s,
+        start: s.startMinutes,
+        end: s.endMinutes,
+        firstHour: Math.floor(s.startMinutes / 60),
+        lastHour: Math.ceil(s.endMinutes / 60) - 1, // 予定が触れる最後の時間
+      }))
+      .filter((s) => s.lastHour > s.firstHour) // 時間の境界を1つ以上またぐものだけ
+      .sort((a, b) => a.start - b.start || a.end - b.end);
+
+    // 同時に走る予定が横に重ならないよう、貪欲法でレーンを割り当てる。
+    const laneEnds: number[] = []; // 各レーンで最後に埋まっている終了分
+    const map = new Map<number, SpanBar[]>();
+    for (const s of spans) {
+      let lane = laneEnds.findIndex((e) => e <= s.start);
+      if (lane === -1) {
+        lane = laneEnds.length;
+        laneEnds.push(s.end);
+      } else {
+        laneEnds[lane] = s.end;
+      }
+      const startHour = Math.max(HOUR_MIN, s.firstHour);
+      const endHour = Math.min(HOUR_MAX, s.lastHour);
+      if (endHour < startHour) continue;
+      const color = s.item.source === "outlook" ? "#243b53" : "#b91c1c";
+      const label = `${s.item.title || "予定"}（${minutesToLabel(
+        s.start,
+      )}〜${minutesToLabel(s.end)}）`;
+      for (let h = startHour; h <= endHour; h++) {
+        const seg: SpanBar = { id: s.item.id, lane, startHour, endHour, color, label };
+        const arr = map.get(h);
+        if (arr) arr.push(seg);
+        else map.set(h, [seg]);
+      }
+    }
+    return { barsByHour: map, laneCount: laneEnds.length };
+  }, [schedule]);
+
   const weekdayColor =
     parts.weekdayIndex === 0
       ? "text-accent"
@@ -366,7 +426,7 @@ export function DayEditor(props: Props) {
             <textarea
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
-              rows={4}
+              rows={8}
               placeholder="メモ・自由記入"
               className="mt-1 w-full rounded-lg border border-rule focus:border-navy bg-transparent px-3 py-2 outline-none transition"
             />
@@ -397,12 +457,38 @@ export function DayEditor(props: Props) {
           <div className="mt-3 divide-y divide-rule">
             {HOURS.map((hour) => {
               const rows = scheduleByHour.get(hour) ?? [];
+              const bars = barsByHour.get(hour) ?? [];
               return (
-                <div key={hour} className="flex gap-2 py-1.5 min-h-[2.75rem]">
-                  <div className="w-8 shrink-0 pt-1 text-right text-xs text-gray-400 tabular-nums">
+                <div key={hour} className="flex gap-2 min-h-[2.75rem]">
+                  <div className="w-8 shrink-0 pt-1.5 text-right text-xs text-gray-400 tabular-nums">
                     {hour}
                   </div>
-                  <div className="flex-1 space-y-1.5">
+                  {laneCount > 0 && (
+                    <div
+                      className="relative shrink-0 self-stretch"
+                      style={{ width: laneCount * LANE_STEP }}
+                      aria-hidden
+                    >
+                      {bars.map((seg) => (
+                        <div
+                          key={seg.id}
+                          className="absolute inset-y-0"
+                          title={seg.label}
+                          style={{
+                            left: seg.lane * LANE_STEP,
+                            width: BAR_WIDTH,
+                            background: seg.color,
+                            opacity: 0.85,
+                            borderTopLeftRadius: hour === seg.startHour ? 3 : 0,
+                            borderTopRightRadius: hour === seg.startHour ? 3 : 0,
+                            borderBottomLeftRadius: hour === seg.endHour ? 3 : 0,
+                            borderBottomRightRadius: hour === seg.endHour ? 3 : 0,
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex-1 py-1.5 space-y-1.5">
                     {rows.map((s) => (
                       <ScheduleRow
                         key={s.id}
@@ -456,14 +542,34 @@ function ScheduleRow({
             {item.endMinutes != null && `–${minutesToLabel(item.endMinutes)}`}
           </span>
         ) : (
-          <input
-            type="time"
-            value={minutesToHhmm(item.startMinutes)}
-            onChange={(e) =>
-              onChange({ startMinutes: hhmmToMinutes(e.target.value) })
-            }
-            className="text-xs border border-rule rounded px-1 py-0.5 shrink-0"
-          />
+          <div className="flex items-center gap-1 shrink-0">
+            <input
+              type="time"
+              value={minutesToHhmm(item.startMinutes)}
+              onChange={(e) =>
+                onChange({ startMinutes: hhmmToMinutes(e.target.value) })
+              }
+              className="text-xs border border-rule rounded px-1 py-0.5"
+            />
+            <span className="text-gray-300 text-xs" aria-hidden>
+              –
+            </span>
+            <input
+              type="time"
+              value={
+                item.endMinutes != null ? minutesToHhmm(item.endMinutes) : ""
+              }
+              onChange={(e) =>
+                onChange({
+                  endMinutes: e.target.value
+                    ? hhmmToMinutes(e.target.value)
+                    : null,
+                })
+              }
+              aria-label="終了時刻"
+              className="text-xs border border-rule rounded px-1 py-0.5 text-gray-500"
+            />
+          </div>
         )}
         {isOutlook ? (
           <span className="flex-1 text-sm truncate" title={item.title}>
