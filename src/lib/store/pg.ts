@@ -7,6 +7,7 @@ import {
   journalItems,
   scheduleItems,
   monthlyGoals,
+  challenges,
 } from "@/db/schema";
 import type {
   JournalEntry,
@@ -18,6 +19,13 @@ import { emptyEntry } from "../types";
 import { mergeOutlookEvents } from "../schedule";
 import { searchInEntry, type SearchResult } from "../search";
 import { monthlyKmForYear, type MonthStats } from "../stats";
+import type {
+  Challenge,
+  ChallengeCategory,
+  ChallengeInput,
+  ChallengePatch,
+  ChallengeStatus,
+} from "../challenge";
 
 type DrizzleDb = ReturnType<typeof drizzle>;
 let _db: DrizzleDb | null = null;
@@ -313,4 +321,98 @@ export async function searchEntries(
     if (hits.length) results.push({ date: e.date, hits });
   }
   return results;
+}
+
+// challenges テーブルの行をドメイン型に変換する。
+function rowToChallenge(r: typeof challenges.$inferSelect): Challenge {
+  return {
+    id: String(r.id),
+    text: r.text,
+    category: r.category as ChallengeCategory,
+    status: r.status as ChallengeStatus,
+    note: r.note,
+    sourceDate: r.sourceDate,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+    resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : null,
+  };
+}
+
+export async function listChallenges(userId: string): Promise<Challenge[]> {
+  const d = db();
+  const rows = await d
+    .select()
+    .from(challenges)
+    .where(eq(challenges.userId, userId))
+    .orderBy(desc(challenges.createdAt));
+  return rows.map(rowToChallenge);
+}
+
+export async function addChallenge(
+  userId: string,
+  input: ChallengeInput,
+): Promise<Challenge> {
+  const d = db();
+  const now = new Date();
+  const [row] = await d
+    .insert(challenges)
+    .values({
+      userId,
+      text: input.text,
+      category: input.category,
+      status: "open",
+      note: input.note ?? "",
+      sourceDate: input.sourceDate ?? null,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .returning();
+  return rowToChallenge(row);
+}
+
+export async function updateChallenge(
+  userId: string,
+  id: string,
+  patch: ChallengePatch,
+): Promise<Challenge | null> {
+  const numId = Number(id);
+  if (!Number.isInteger(numId)) return null;
+  const d = db();
+
+  const [current] = await d
+    .select()
+    .from(challenges)
+    .where(and(eq(challenges.userId, userId), eq(challenges.id, numId)))
+    .limit(1);
+  if (!current) return null;
+
+  const now = new Date();
+  const nextStatus = (patch.status ?? current.status) as ChallengeStatus;
+  const [row] = await d
+    .update(challenges)
+    .set({
+      text: patch.text ?? current.text,
+      category: patch.category ?? current.category,
+      status: nextStatus,
+      note: patch.note ?? current.note,
+      updatedAt: now,
+      // 解決に入った時だけ resolvedAt をセット。解決から戻したら消す。
+      resolvedAt:
+        nextStatus === "resolved" ? (current.resolvedAt ?? now) : null,
+    })
+    .where(and(eq(challenges.userId, userId), eq(challenges.id, numId)))
+    .returning();
+  return row ? rowToChallenge(row) : null;
+}
+
+export async function deleteChallenge(
+  userId: string,
+  id: string,
+): Promise<void> {
+  const numId = Number(id);
+  if (!Number.isInteger(numId)) return;
+  const d = db();
+  await d
+    .delete(challenges)
+    .where(and(eq(challenges.userId, userId), eq(challenges.id, numId)));
 }

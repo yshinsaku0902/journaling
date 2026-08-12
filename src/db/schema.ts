@@ -48,6 +48,29 @@ export const monthlyGoals = pgTable(
   }),
 );
 
+export const challenges = pgTable(
+  "challenges",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    text: text("text").notNull().default(""),
+    category: text("category").notNull().default("other"),
+    status: text("status").notNull().default("open"), // 'open' | 'doing' | 'resolved'
+    note: text("note").notNull().default(""),
+    sourceDate: text("source_date"), // 元の日記日付 yyyy-MM-dd（任意）
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }), // 解決時刻（任意）
+  },
+  (t) => ({
+    byUser: index("challenges_user_idx").on(t.userId),
+  }),
+);
+
 export const journalItems = pgTable(
   "journal_items",
   {

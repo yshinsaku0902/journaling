@@ -12,6 +12,7 @@ import type {
 import { ACHIEVEMENT_LABELS } from "@/lib/types";
 import type { JpDateParts } from "@/lib/date";
 import { minutesToLabel } from "@/lib/date";
+import { ChallengeQuickAdd } from "@/components/ChallengeQuickAdd";
 
 interface Props {
   date: string;
@@ -431,6 +432,8 @@ export function DayEditor(props: Props) {
               className="mt-1 w-full rounded-lg border border-rule focus:border-navy bg-transparent px-3 py-2 outline-none transition"
             />
           </div>
+
+          <ChallengeQuickAdd date={date} />
         </section>
 
         {/* ===== 右ページ：時間軸 ===== */}

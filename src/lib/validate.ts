@@ -5,7 +5,15 @@ import type {
   ScheduleItem,
   AchievementLevel,
 } from "./types";
+import type {
+  ChallengeCategory,
+  ChallengeInput,
+  ChallengePatch,
+  ChallengeStatus,
+} from "./challenge";
+import { CHALLENGE_CATEGORIES } from "./challenge";
 import { newId } from "./schedule";
+import { isValidDateStr } from "./date";
 
 function str(v: unknown, max = 2000): string {
   return typeof v === "string" ? v.slice(0, max) : "";
@@ -58,6 +66,44 @@ function toSchedule(v: unknown): ScheduleItem {
       typeof o.outlookEventId === "string" ? o.outlookEventId : null,
     resultNote: str(o.resultNote, 1000),
   };
+}
+
+const CATEGORY_KEYS = new Set<string>(CHALLENGE_CATEGORIES.map((c) => c.key));
+const STATUS_KEYS = new Set<string>(["open", "doing", "resolved"]);
+
+function category(v: unknown): ChallengeCategory {
+  return typeof v === "string" && CATEGORY_KEYS.has(v)
+    ? (v as ChallengeCategory)
+    : "other";
+}
+
+// yyyy-MM-dd の妥当な日付のみ許容（それ以外は null）。
+function sourceDate(v: unknown): string | null {
+  return typeof v === "string" && isValidDateStr(v) ? v : null;
+}
+
+// 登録ペイロード。text は呼び出し側(API)で空チェックする前提。
+export function toChallengeInput(body: unknown): ChallengeInput {
+  const o = (body ?? {}) as Record<string, unknown>;
+  return {
+    text: str(o.text, 500),
+    category: category(o.category),
+    note: str(o.note, 1000),
+    sourceDate: sourceDate(o.sourceDate),
+  };
+}
+
+// 部分更新ペイロード。渡されたキーだけを反映する。
+export function toChallengePatch(body: unknown): ChallengePatch {
+  const o = (body ?? {}) as Record<string, unknown>;
+  const patch: ChallengePatch = {};
+  if (typeof o.text === "string") patch.text = str(o.text, 500);
+  if (typeof o.category === "string") patch.category = category(o.category);
+  if (typeof o.status === "string" && STATUS_KEYS.has(o.status)) {
+    patch.status = o.status as ChallengeStatus;
+  }
+  if (typeof o.note === "string") patch.note = str(o.note, 1000);
+  return patch;
 }
 
 export function toEntryPatch(body: unknown): EntryPatch {
