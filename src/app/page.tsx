@@ -1,11 +1,12 @@
 import { Fragment } from "react";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/session";
-import { getMonthStats, getMonthlyGoal } from "@/lib/store";
+import { getMonthStats, getMonthlyGoal, listChallenges } from "@/lib/store";
 import { sumKm } from "@/lib/stats";
 import { SignInPrompt } from "@/components/SignInPrompt";
 import { SearchBox } from "@/components/SearchBox";
 import { MonthlyGoalInput } from "@/components/MonthlyGoalInput";
+import { ChallengeBoard } from "@/components/ChallengeBoard";
 import {
   todayJst,
   ymOf,
@@ -33,6 +34,7 @@ export default async function Home({
 
   const stats = await getMonthStats(user.id, year, month);
   const goal = await getMonthlyGoal(user.id, ym);
+  const challenges = await listChallenges(user.id);
   const grid = monthGrid(year, month);
   const weeks: (string | null)[][] = [];
   for (let i = 0; i < grid.length; i += 7) weeks.push(grid.slice(i, i + 7));
@@ -169,6 +171,16 @@ export default async function Home({
             {monthTotal.toFixed(1)} km
           </span>
         </div>
+      </section>
+
+      <section className="mt-6">
+        <div className="flex items-baseline justify-between px-1">
+          <h2 className="text-base font-bold text-navy">🧭 経営課題</h2>
+          <span className="text-[11px] text-gray-400">
+            気づきを書き留めて忘れない
+          </span>
+        </div>
+        <ChallengeBoard initialChallenges={challenges} />
       </section>
 
       <div className="mt-6 flex flex-col items-center gap-3">
