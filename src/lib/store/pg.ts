@@ -184,7 +184,7 @@ export async function getMonthStats(
     .select()
     .from(entries)
     .where(and(eq(entries.userId, userId), like(entries.date, `${prefix}%`)));
-  if (!es.length) return { content: {}, distanceByDate: {} };
+  if (!es.length) return { content: {}, distanceByDate: {}, goalByDate: {} };
 
   const ids = es.map((e) => e.id);
   const byId = new Map(es.map((e) => [e.id, e]));
@@ -199,12 +199,16 @@ export async function getMonthStats(
 
   const content: Record<string, boolean> = {};
   const distanceByDate: Record<string, number> = {};
+  const goalByDate: Record<string, string> = {};
   for (const e of es) {
     if (e.mostImportantGoal.trim() || e.memo.trim() || e.dailyQuote.trim()) {
       content[e.date] = true;
     }
     if (typeof e.runningDistanceKm === "number" && e.runningDistanceKm > 0) {
       distanceByDate[e.date] = e.runningDistanceKm;
+    }
+    if (e.mostImportantGoal.trim()) {
+      goalByDate[e.date] = e.mostImportantGoal.trim();
     }
   }
   for (const it of its) {
@@ -223,7 +227,7 @@ export async function getMonthStats(
       if (e) content[e.date] = true;
     }
   }
-  return { content, distanceByDate };
+  return { content, distanceByDate, goalByDate };
 }
 
 export async function getYearDistances(

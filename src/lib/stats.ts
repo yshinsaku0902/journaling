@@ -4,6 +4,7 @@
 export interface MonthStats {
   content: Record<string, boolean>; // 記入済みドット用（date -> true）
   distanceByDate: Record<string, number>; // date -> km（>0 のみ）
+  goalByDate: Record<string, string>; // date -> その日の最重点目標（空でない日のみ）
 }
 
 // 小数1桁に丸める（浮動小数の誤差を抑える）。
