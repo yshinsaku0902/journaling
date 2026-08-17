@@ -1,10 +1,21 @@
 // 走行距離の集計に使う純粋関数。ストア層・カレンダー・統計ページで共用する。
+import type { ItemKind } from "./types";
+
+// トップの「やり残しTODO」1件（未完了＝done:false かつ本文あり）。
+export interface UndoneTodo {
+  id: string; // その日の記入内のTODO id（完了/削除の対象特定用）
+  date: string; // yyyy-MM-dd
+  text: string;
+  kind: ItemKind; // 仕事 / プライベート
+}
 
 // カレンダー1ヶ月分の集計（記入済みフラグと日付ごとの距離）。
 export interface MonthStats {
   content: Record<string, boolean>; // 記入済みドット用（date -> true）
   distanceByDate: Record<string, number>; // date -> km（>0 のみ）
   goalByDate: Record<string, string>; // date -> その日の最重点目標（空でない日のみ）
+  undoneByDate: Record<string, number>; // date -> 未完了TODO件数（カレンダーのバッジ用）
+  undoneTodos: UndoneTodo[]; // 未完了TODO一覧（日付の古い順）
 }
 
 // 小数1桁に丸める（浮動小数の誤差を抑える）。

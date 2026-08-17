@@ -10,12 +10,26 @@ export const ACHIEVEMENT_LABELS: Record<AchievementLevel, string> = {
   3: "◎",
 };
 
-// 左ページ・メイン記入欄の1行（箇条書き＋達成度合）
+// TODOの区分: 仕事 / プライベート（色分け用）
+export type ItemKind = "work" | "private";
+
+export const ITEM_KINDS = [
+  { key: "work", label: "仕事", color: "#2563eb" },
+  { key: "private", label: "プライベート", color: "#f59e0b" },
+] as const satisfies readonly { key: ItemKind; label: string; color: string }[];
+
+// 区分メタを引く（未知値は「仕事」にフォールバック）
+export function itemKindMeta(kind: string): (typeof ITEM_KINDS)[number] {
+  return ITEM_KINDS.find((k) => k.key === kind) ?? ITEM_KINDS[0];
+}
+
+// 左ページ・メイン記入欄の1行（TODO：チェック＋仕事/プライベート区分）
 export interface JournalItem {
   id: string;
   text: string;
   done: boolean;
   achievement: AchievementLevel;
+  kind: ItemKind; // 仕事 / プライベート
   sortOrder: number;
 }
 

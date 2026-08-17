@@ -80,6 +80,7 @@ export const journalItems = pgTable(
     text: text("text").notNull().default(""),
     done: boolean("done").notNull().default(false),
     achievement: integer("achievement").notNull().default(0),
+    kind: text("kind").notNull().default("work"), // 'work' | 'private'
   },
   (t) => ({
     byEntry: index("journal_items_entry_idx").on(t.entryId),
