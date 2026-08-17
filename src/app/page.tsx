@@ -54,6 +54,24 @@ export default async function Home({
   };
   const monthTotal = sumKm(Object.values(stats.distanceByDate));
 
+  // 距離バーの高さスケール用（その月の最大距離）
+  const maxDist = Math.max(0, ...Object.values(stats.distanceByDate));
+
+  // ミニ統計・達成メーター用
+  const isCurrentMonth = ymOf(today) === ym;
+  const recordedDays = Object.keys(stats.content).length;
+  // 記入率の分母は「経過日数（今月）／その月の日数（過去月）」
+  const elapsedDays = isCurrentMonth ? jpDateParts(today).day : daysInMonth;
+  const recordPct =
+    elapsedDays > 0
+      ? Math.min(100, Math.round((recordedDays / elapsedDays) * 100))
+      : 0;
+  const distancePct =
+    goal != null && goal > 0
+      ? Math.min(100, Math.round((monthTotal / goal) * 100))
+      : null;
+  const medalCount = weeks.filter(weekMedal).length;
+
   const prevYm = addMonths(ym, -1);
   const nextYm = addMonths(ym, 1);
 
@@ -97,6 +115,83 @@ export default async function Home({
           />
         </div>
 
+        {/* ミニ統計サマリー */}
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <div className="rounded-xl bg-gradient-to-b from-navy/5 to-transparent border border-rule px-2 py-2 text-center">
+            <div className="text-lg font-bold leading-none text-navy tabular-nums">
+              {recordedDays}
+              <span className="text-[10px] font-medium text-gray-400">日</span>
+            </div>
+            <div className="mt-1 text-[10px] text-gray-500">📝 今月の記入</div>
+          </div>
+          <div className="rounded-xl bg-gradient-to-b from-accent/5 to-transparent border border-rule px-2 py-2 text-center">
+            <div className="text-lg font-bold leading-none text-accent tabular-nums">
+              {monthTotal.toFixed(1)}
+              <span className="text-[10px] font-medium text-gray-400">km</span>
+            </div>
+            <div className="mt-1 text-[10px] text-gray-500">🏃 走行距離</div>
+          </div>
+          <div className="rounded-xl bg-gradient-to-b from-amber-100/60 to-transparent border border-rule px-2 py-2 text-center">
+            <div className="flex items-center justify-center gap-0.5 text-lg font-bold leading-none tabular-nums text-amber-600">
+              {distancePct != null ? (
+                <>
+                  {distancePct}
+                  <span className="text-[10px] font-medium text-gray-400">%</span>
+                </>
+              ) : (
+                <>
+                  {medalCount}
+                  <span className="text-[10px] font-medium text-gray-400">個</span>
+                </>
+              )}
+            </div>
+            <div className="mt-1 text-[10px] text-gray-500">
+              {distancePct != null ? "🎯 目標達成" : "🏅 週メダル"}
+            </div>
+          </div>
+        </div>
+
+        {/* 記入率メーター */}
+        <div className="mt-3">
+          <div className="mb-1 flex items-baseline justify-between text-[11px]">
+            <span className="text-gray-500">
+              {isCurrentMonth ? "今月ここまでの記入" : "この月の記入"}
+            </span>
+            <span className="font-bold tabular-nums text-navy">
+              {recordedDays}/{elapsedDays}日
+              <span className="ml-1 text-gray-400">({recordPct}%)</span>
+            </span>
+          </div>
+          <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-100">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-navy to-navy/70 transition-all"
+              style={{ width: `${recordPct}%` }}
+            />
+          </div>
+          {distancePct != null && (
+            <>
+              <div className="mb-1 mt-2 flex items-baseline justify-between text-[11px]">
+                <span className="text-gray-500">距離目標</span>
+                <span className="font-bold tabular-nums text-accent">
+                  {monthTotal.toFixed(1)}/{goal}km
+                  <span className="ml-1 text-gray-400">({distancePct}%)</span>
+                  {distancePct >= 100 && (
+                    <span className="sparkle-pop ml-1 inline-block" aria-label="目標達成">
+                      🎉
+                    </span>
+                  )}
+                </span>
+              </div>
+              <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-100">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-accent to-amber-500 transition-all"
+                  style={{ width: `${distancePct}%` }}
+                />
+              </div>
+            </>
+          )}
+        </div>
+
         <div className="mt-4 grid grid-cols-8 gap-1 text-center">
           {WEEKDAY_LABELS.map((w, i) => (
             <div
@@ -120,16 +215,32 @@ export default async function Home({
                 const isToday = date === today;
                 const dist = stats.distanceByDate[date];
                 const has = stats.content[date];
+                const goalText = stats.goalByDate[date];
                 return (
                   <Link
                     key={date}
                     href={`/journal/${date}`}
-                    className={`relative aspect-square flex flex-col items-center justify-center rounded-lg border transition
-                      ${isToday ? "border-navy bg-navy/5" : "border-transparent hover:bg-gray-100"}
-                    `}
+                    title={goalText ? `${month}/${day} ${goalText}` : undefined}
+                    className={`group relative flex min-h-[3.6rem] flex-col overflow-hidden rounded-lg border px-1 pb-1 pt-0.5 transition
+                      ${
+                        isToday
+                          ? "today-glow border-navy bg-navy/5"
+                          : "border-transparent hover:bg-gray-100"
+                      }`}
                   >
+                    {/* 距離バー（下から伸びる） */}
+                    {dist != null && maxDist > 0 && (
+                      <span
+                        aria-hidden
+                        className="bar-rise absolute inset-x-0 bottom-0 bg-gradient-to-t from-accent/45 to-accent/10"
+                        style={{
+                          height: `${Math.max(18, (dist / maxDist) * 100)}%`,
+                        }}
+                      />
+                    )}
+                    {/* 日付 */}
                     <span
-                      className={`text-sm leading-none ${
+                      className={`relative z-10 text-xs leading-none ${
                         weekdayIndex === 0
                           ? "text-accent"
                           : weekdayIndex === 6
@@ -139,19 +250,31 @@ export default async function Home({
                     >
                       {day}
                     </span>
-                    {dist != null ? (
-                      <span className="mt-0.5 text-[10px] font-bold leading-none text-accent tabular-nums">
-                        {dist.toFixed(1)}
+                    {/* 大切にすること（その日の最重点目標） */}
+                    {goalText && (
+                      <span className="relative z-10 mt-0.5 line-clamp-2 break-words text-[8px] leading-tight text-navy/70">
+                        {goalText}
                       </span>
-                    ) : has ? (
-                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-gray-300" />
+                    )}
+                    {/* 距離の数値 */}
+                    {dist != null ? (
+                      <span className="relative z-10 mt-auto text-[9px] font-bold leading-none text-accent tabular-nums">
+                        {dist.toFixed(1)}
+                        <span className="text-[7px]">km</span>
+                      </span>
+                    ) : has && !goalText ? (
+                      <span className="relative z-10 mt-auto h-1.5 w-1.5 rounded-full bg-gray-300" />
                     ) : null}
                   </Link>
                 );
               })}
               <div className="flex flex-col items-center justify-center gap-0.5">
                 {weekMedal(week) && (
-                  <span className="text-2xl leading-none" title="週目標達成！" aria-label="週目標達成">
+                  <span
+                    className="sparkle-pop text-2xl leading-none"
+                    title="週目標達成！"
+                    aria-label="週目標達成"
+                  >
                     🏅
                   </span>
                 )}
@@ -164,23 +287,6 @@ export default async function Home({
             </Fragment>
           ))}
         </div>
-
-        <div className="mt-3 flex items-center justify-between border-t border-rule pt-3 text-sm">
-          <span className="text-gray-600">🏃 月間走行距離</span>
-          <span className="font-bold text-navy tabular-nums">
-            {monthTotal.toFixed(1)} km
-          </span>
-        </div>
-      </section>
-
-      <section className="mt-6">
-        <div className="flex items-baseline justify-between px-1">
-          <h2 className="text-base font-bold text-navy">🧭 経営課題</h2>
-          <span className="text-[11px] text-gray-400">
-            気づきを書き留めて忘れない
-          </span>
-        </div>
-        <ChallengeBoard initialChallenges={challenges} />
       </section>
 
       <div className="mt-6 flex flex-col items-center gap-3">
@@ -197,6 +303,16 @@ export default async function Home({
           📊 走行距離グラフを見る
         </Link>
       </div>
+
+      <section className="mt-6">
+        <div className="flex items-baseline justify-between px-1">
+          <h2 className="text-base font-bold text-navy">🧭 経営課題</h2>
+          <span className="text-[11px] text-gray-400">
+            気づきを書き留めて忘れない
+          </span>
+        </div>
+        <ChallengeBoard initialChallenges={challenges} />
+      </section>
     </main>
   );
 }

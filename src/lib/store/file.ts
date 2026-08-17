@@ -132,13 +132,16 @@ export async function getMonthStats(
   const prefix = `${year}-${String(month).padStart(2, "0")}-`;
   const content: Record<string, boolean> = {};
   const distanceByDate: Record<string, number> = {};
+  const goalByDate: Record<string, string> = {};
   for (const [date, entry] of Object.entries(user)) {
     if (!date.startsWith(prefix)) continue;
     if (entryHasContent(entry)) content[date] = true;
     const km = entry.runningDistanceKm;
     if (typeof km === "number" && km > 0) distanceByDate[date] = km;
+    const goal = entry.mostImportantGoal?.trim();
+    if (goal) goalByDate[date] = goal;
   }
-  return { content, distanceByDate };
+  return { content, distanceByDate, goalByDate };
 }
 
 export async function getYearDistances(
