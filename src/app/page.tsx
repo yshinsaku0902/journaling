@@ -7,6 +7,7 @@ import { SignInPrompt } from "@/components/SignInPrompt";
 import { SearchBox } from "@/components/SearchBox";
 import { MonthlyGoalInput } from "@/components/MonthlyGoalInput";
 import { ChallengeBoard } from "@/components/ChallengeBoard";
+import { UndoneTodos } from "@/components/UndoneTodos";
 import {
   todayJst,
   ymOf,
@@ -216,11 +217,15 @@ export default async function Home({
                 const dist = stats.distanceByDate[date];
                 const has = stats.content[date];
                 const goalText = stats.goalByDate[date];
+                const undone = stats.undoneByDate[date] ?? 0;
                 return (
                   <Link
                     key={date}
                     href={`/journal/${date}`}
-                    title={goalText ? `${month}/${day} ${goalText}` : undefined}
+                    title={
+                      (goalText ? `${month}/${day} ${goalText}` : `${month}/${day}`) +
+                      (undone > 0 ? ` / 未完了TODO ${undone}件` : "")
+                    }
                     className={`group relative flex min-h-[3.6rem] flex-col overflow-hidden rounded-lg border px-1 pb-1 pt-0.5 transition
                       ${
                         isToday
@@ -228,6 +233,15 @@ export default async function Home({
                           : "border-transparent hover:bg-gray-100"
                       }`}
                   >
+                    {/* 未完了TODOバッジ */}
+                    {undone > 0 && (
+                      <span
+                        className="absolute right-0.5 top-0.5 z-20 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-accent px-1 text-[9px] font-bold leading-none text-white shadow-sm"
+                        aria-label={`未完了TODO ${undone}件`}
+                      >
+                        {undone}
+                      </span>
+                    )}
                     {/* 距離バー（下から伸びる） */}
                     {dist != null && maxDist > 0 && (
                       <span
@@ -288,6 +302,9 @@ export default async function Home({
           ))}
         </div>
       </section>
+
+      {/* やり残しTODO（未完了）まとめ・その場で完了/削除できる */}
+      <UndoneTodos initial={stats.undoneTodos} />
 
       <div className="mt-6 flex flex-col items-center gap-3">
         <Link

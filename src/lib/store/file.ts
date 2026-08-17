@@ -6,7 +6,7 @@ import type { JournalEntry, EntryPatch, OutlookEventInput } from "../types";
 import { emptyEntry } from "../types";
 import { mergeOutlookEvents, entryHasContent, newId } from "../schedule";
 import { searchInEntry, type SearchResult } from "../search";
-import { monthlyKmForYear, type MonthStats } from "../stats";
+import { monthlyKmForYear, type MonthStats, type UndoneTodo } from "../stats";
 import type { Challenge, ChallengeInput, ChallengePatch } from "../challenge";
 
 const DATA_DIR = path.join(process.cwd(), ".data");
@@ -133,6 +133,8 @@ export async function getMonthStats(
   const content: Record<string, boolean> = {};
   const distanceByDate: Record<string, number> = {};
   const goalByDate: Record<string, string> = {};
+  const undoneByDate: Record<string, number> = {};
+  const undoneTodos: UndoneTodo[] = [];
   for (const [date, entry] of Object.entries(user)) {
     if (!date.startsWith(prefix)) continue;
     if (entryHasContent(entry)) content[date] = true;
@@ -140,8 +142,20 @@ export async function getMonthStats(
     if (typeof km === "number" && km > 0) distanceByDate[date] = km;
     const goal = entry.mostImportantGoal?.trim();
     if (goal) goalByDate[date] = goal;
+    for (const it of entry.items) {
+      if (!it.done && it.text.trim()) {
+        undoneByDate[date] = (undoneByDate[date] ?? 0) + 1;
+        undoneTodos.push({
+          id: it.id,
+          date,
+          text: it.text.trim(),
+          kind: it.kind ?? "work",
+        });
+      }
+    }
   }
-  return { content, distanceByDate, goalByDate };
+  undoneTodos.sort((a, b) => a.date.localeCompare(b.date));
+  return { content, distanceByDate, goalByDate, undoneByDate, undoneTodos };
 }
 
 export async function getYearDistances(

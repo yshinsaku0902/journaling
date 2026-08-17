@@ -7,9 +7,8 @@ import type {
   JournalItem,
   ScheduleItem,
   EntryPatch,
-  AchievementLevel,
 } from "@/lib/types";
-import { ACHIEVEMENT_LABELS } from "@/lib/types";
+import { ITEM_KINDS, itemKindMeta } from "@/lib/types";
 import type { JpDateParts } from "@/lib/date";
 import { minutesToLabel } from "@/lib/date";
 import { ChallengeQuickAdd } from "@/components/ChallengeQuickAdd";
@@ -165,6 +164,7 @@ export function DayEditor(props: Props) {
         text: "",
         done: false,
         achievement: 0,
+        kind: "work",
         sortOrder: prev.length,
       },
     ]);
@@ -172,11 +172,11 @@ export function DayEditor(props: Props) {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
   const deleteItem = (id: string) =>
     setItems((prev) => prev.filter((i) => i.id !== id));
-  const cycleAchievement = (id: string) =>
+  const toggleKind = (id: string) =>
     setItems((prev) =>
       prev.map((i) =>
         i.id === id
-          ? { ...i, achievement: (((i.achievement + 1) % 4) as AchievementLevel) }
+          ? { ...i, kind: i.kind === "work" ? "private" : "work" }
           : i,
       ),
     );
@@ -376,48 +376,75 @@ export function DayEditor(props: Props) {
           />
 
           <div className="mt-5 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-navy">記入欄</h3>
-            <span className="text-[11px] text-gray-400">達成度をタップ ▷ △○◎</span>
+            <h3 className="text-sm font-bold text-navy">TODO</h3>
+            <div className="flex items-center gap-2 text-[11px] text-gray-400">
+              {ITEM_KINDS.map((k) => (
+                <span key={k.key} className="inline-flex items-center gap-1">
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: k.color }}
+                  />
+                  {k.label}
+                </span>
+              ))}
+            </div>
           </div>
           <ul className="mt-2 space-y-1.5">
-            {items.map((item) => (
-              <li key={item.id} className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => cycleAchievement(item.id)}
-                  className={`shrink-0 h-7 w-7 rounded-md border text-sm font-bold transition
-                    ${
-                      item.achievement === 0
-                        ? "border-rule text-gray-300"
-                        : "border-navy text-navy bg-navy/5"
+            {items.map((item) => {
+              const kindMeta = itemKindMeta(item.kind);
+              return (
+                <li
+                  key={item.id}
+                  className="flex items-center gap-2 rounded-md py-0.5 pl-2"
+                  style={{ borderLeft: `3px solid ${kindMeta.color}` }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={item.done}
+                    onChange={(e) =>
+                      updateItem(item.id, { done: e.target.checked })
+                    }
+                    className="h-5 w-5 shrink-0 cursor-pointer rounded"
+                    style={{ accentColor: kindMeta.color }}
+                    aria-label="完了"
+                  />
+                  <input
+                    value={item.text}
+                    onChange={(e) =>
+                      updateItem(item.id, { text: e.target.value })
+                    }
+                    placeholder="やること・TODO"
+                    className={`field-line flex-1 ${
+                      item.done ? "text-gray-400 line-through" : ""
                     }`}
-                  aria-label="達成度"
-                >
-                  {ACHIEVEMENT_LABELS[item.achievement]}
-                </button>
-                <input
-                  value={item.text}
-                  onChange={(e) => updateItem(item.id, { text: e.target.value })}
-                  placeholder="やること・気づき・振り返り"
-                  className="field-line flex-1"
-                />
-                <button
-                  type="button"
-                  onClick={() => deleteItem(item.id)}
-                  className="shrink-0 text-gray-300 hover:text-accent px-1"
-                  aria-label="削除"
-                >
-                  ✕
-                </button>
-              </li>
-            ))}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => toggleKind(item.id)}
+                    className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold text-white transition hover:opacity-85"
+                    style={{ backgroundColor: kindMeta.color }}
+                    title="仕事／プライベートを切替"
+                  >
+                    {kindMeta.label}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteItem(item.id)}
+                    className="shrink-0 px-1 text-gray-300 hover:text-accent"
+                    aria-label="削除"
+                  >
+                    ✕
+                  </button>
+                </li>
+              );
+            })}
           </ul>
           <button
             type="button"
             onClick={addItem}
             className="mt-2 text-sm text-navy hover:underline"
           >
-            ＋ 行を追加
+            ＋ TODOを追加
           </button>
 
           <div className="mt-6">
@@ -427,9 +454,9 @@ export function DayEditor(props: Props) {
             <textarea
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
-              rows={8}
+              rows={18}
               placeholder="メモ・自由記入"
-              className="mt-1 w-full rounded-lg border border-rule focus:border-navy bg-transparent px-3 py-2 outline-none transition"
+              className="mt-1 min-h-[20rem] w-full rounded-lg border border-rule focus:border-navy bg-transparent px-3 py-2 outline-none transition"
             />
           </div>
 

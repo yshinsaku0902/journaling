@@ -43,6 +43,7 @@ function toItem(v: unknown, idx: number): JournalItem {
     text: str(o.text),
     done: bool(o.done),
     achievement: clampInt(o.achievement, 0, 3, 0) as AchievementLevel,
+    kind: o.kind === "private" ? "private" : "work",
     sortOrder: typeof o.sortOrder === "number" ? o.sortOrder : idx,
   };
 }
