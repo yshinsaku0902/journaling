@@ -125,8 +125,8 @@ export default async function Home({
             </div>
             <div className="mt-1 text-[10px] text-gray-500">📝 今月の記入</div>
           </div>
-          <div className="rounded-xl bg-gradient-to-b from-accent/5 to-transparent border border-rule px-2 py-2 text-center">
-            <div className="text-lg font-bold leading-none text-accent tabular-nums">
+          <div className="rounded-xl bg-gradient-to-b from-sky-500/10 to-transparent border border-rule px-2 py-2 text-center">
+            <div className="text-lg font-bold leading-none text-sky-600 tabular-nums">
               {monthTotal.toFixed(1)}
               <span className="text-[10px] font-medium text-gray-400">km</span>
             </div>
@@ -173,7 +173,7 @@ export default async function Home({
             <>
               <div className="mb-1 mt-2 flex items-baseline justify-between text-[11px]">
                 <span className="text-gray-500">距離目標</span>
-                <span className="font-bold tabular-nums text-accent">
+                <span className="font-bold tabular-nums text-sky-600">
                   {monthTotal.toFixed(1)}/{goal}km
                   <span className="ml-1 text-gray-400">({distancePct}%)</span>
                   {distancePct >= 100 && (
@@ -185,7 +185,7 @@ export default async function Home({
               </div>
               <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-100">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-accent to-amber-500 transition-all"
+                  className="h-full rounded-full bg-gradient-to-r from-sky-600 to-sky-400 transition-all"
                   style={{ width: `${distancePct}%` }}
                 />
               </div>
@@ -246,7 +246,7 @@ export default async function Home({
                     {dist != null && maxDist > 0 && (
                       <span
                         aria-hidden
-                        className="bar-rise absolute inset-x-0 bottom-0 bg-gradient-to-t from-accent/45 to-accent/10"
+                        className="bar-rise absolute inset-x-0 bottom-0 bg-gradient-to-t from-sky-600/45 to-sky-600/10"
                         style={{
                           height: `${Math.max(18, (dist / maxDist) * 100)}%`,
                         }}
@@ -272,7 +272,7 @@ export default async function Home({
                     )}
                     {/* 距離の数値 */}
                     {dist != null ? (
-                      <span className="relative z-10 mt-auto text-[9px] font-bold leading-none text-accent tabular-nums">
+                      <span className="relative z-10 mt-auto text-[9px] font-bold leading-none text-sky-600 tabular-nums">
                         {dist.toFixed(1)}
                         <span className="text-[7px]">km</span>
                       </span>

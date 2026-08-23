@@ -278,7 +278,17 @@ export function DayEditor(props: Props) {
         >
           ← カレンダー
         </Link>
-        <SaveIndicator state={saveState} savedAt={savedAt} />
+        <div className="flex items-center gap-2">
+          <SaveIndicator state={saveState} savedAt={savedAt} />
+          <button
+            type="button"
+            onClick={() => void doSave()}
+            disabled={saveState === "saving"}
+            className="text-xs rounded-lg border border-navy text-navy px-3 py-1.5 hover:bg-navy/5 disabled:opacity-50 transition"
+          >
+            保存
+          </button>
+        </div>
       </header>
 
       <div className="mt-3 flex items-end justify-between">
