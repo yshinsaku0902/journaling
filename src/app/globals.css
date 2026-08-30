@@ -91,10 +91,25 @@ button {
   animation: bar-rise 0.5s ease-out both;
 }
 
+/* 走った日のマスが金色にふわっと光る（ご褒美） */
+@keyframes run-day-ring {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(217, 164, 65, 0);
+  }
+  50% {
+    box-shadow: 0 0 8px 1px rgba(217, 164, 65, 0.4);
+  }
+}
+.run-day {
+  animation: run-day-ring 3.4s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .today-glow,
   .sparkle-pop,
-  .bar-rise {
+  .bar-rise,
+  .run-day {
     animation: none;
   }
 }

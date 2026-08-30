@@ -19,7 +19,13 @@ import type {
 import { emptyEntry } from "../types";
 import { mergeOutlookEvents } from "../schedule";
 import { searchInEntry, type SearchResult } from "../search";
-import { monthlyKmForYear, type MonthStats, type UndoneTodo } from "../stats";
+import {
+  monthlyKmForYear,
+  monthlyRunDaysForYear,
+  type MonthStats,
+  type UndoneTodo,
+  type YearRunStats,
+} from "../stats";
 import type {
   Challenge,
   ChallengeCategory,
@@ -252,16 +258,19 @@ export async function getMonthStats(
   return { content, distanceByDate, goalByDate, undoneByDate, undoneTodos };
 }
 
-export async function getYearDistances(
+export async function getYearRunStats(
   userId: string,
   year: number,
-): Promise<number[]> {
+): Promise<YearRunStats> {
   const d = db();
   const rows = await d
     .select({ date: entries.date, km: entries.runningDistanceKm })
     .from(entries)
     .where(and(eq(entries.userId, userId), like(entries.date, `${year}-%`)));
-  return monthlyKmForYear(rows, year);
+  return {
+    km: monthlyKmForYear(rows, year),
+    runDays: monthlyRunDaysForYear(rows, year),
+  };
 }
 
 export async function getMonthlyGoal(

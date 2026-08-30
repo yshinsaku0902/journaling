@@ -1,11 +1,17 @@
 // 月別走行距離の棒グラフ（依存ライブラリなし・純粋なサーバーコンポーネント）。
-// monthly は長さ12（1月〜12月）の km 配列。
+// monthly は長さ12（1月〜12月）の km 配列、runDays は同じ並びの「走った日数」。
 
 function fmtKm(v: number): string {
   return Number.isInteger(v) ? String(v) : v.toFixed(1);
 }
 
-export function DistanceBarChart({ monthly }: { monthly: number[] }) {
+export function DistanceBarChart({
+  monthly,
+  runDays,
+}: {
+  monthly: number[];
+  runDays: number[];
+}) {
   const max = Math.max(0, ...monthly);
 
   if (max <= 0) {
@@ -23,7 +29,7 @@ export function DistanceBarChart({ monthly }: { monthly: number[] }) {
           <div
             key={i}
             className="flex h-full flex-1 items-end"
-            title={`${i + 1}月: ${fmtKm(v)} km`}
+            title={`${i + 1}月: ${fmtKm(v)} km / ${runDays[i] ?? 0}回`}
           >
             <div
               className="w-full rounded-t bg-navy/80"
@@ -39,6 +45,11 @@ export function DistanceBarChart({ monthly }: { monthly: number[] }) {
             {v > 0 && (
               <div className="text-[9px] font-medium text-navy tabular-nums">
                 {fmtKm(v)}
+              </div>
+            )}
+            {(runDays[i] ?? 0) > 0 && (
+              <div className="text-[9px] font-bold text-amber-600 tabular-nums">
+                {runDays[i]}回
               </div>
             )}
           </div>

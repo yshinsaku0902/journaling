@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/session";
-import { getYearDistances } from "@/lib/store";
+import { getYearRunStats } from "@/lib/store";
 import { sumKm } from "@/lib/stats";
 import { SignInPrompt } from "@/components/SignInPrompt";
 import { DistanceBarChart } from "@/components/DistanceBarChart";
@@ -23,8 +23,9 @@ export default async function StatsPage({
       ? parsed
       : Number(todayJst().slice(0, 4));
 
-  const monthly = await getYearDistances(user.id, year);
+  const { km: monthly, runDays } = await getYearRunStats(user.id, year);
   const yearTotal = sumKm(monthly);
+  const yearRuns = runDays.reduce((a, b) => a + b, 0);
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-6 pb-24">
@@ -55,12 +56,14 @@ export default async function StatsPage({
         </div>
 
         <div className="mt-5">
-          <DistanceBarChart monthly={monthly} />
+          <DistanceBarChart monthly={monthly} runDays={runDays} />
         </div>
 
         <div className="mt-4 flex items-center justify-between border-t border-rule pt-3 text-sm">
           <span className="text-gray-600">🏃 年間合計</span>
-          <span className="font-bold text-navy tabular-nums">
+          <span className="font-bold tabular-nums text-navy">
+            <span className="text-amber-600">{yearRuns}回</span>
+            <span className="mx-1.5 text-gray-300">・</span>
             {yearTotal.toFixed(1)} km
           </span>
         </div>

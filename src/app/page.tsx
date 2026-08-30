@@ -2,7 +2,7 @@ import { Fragment } from "react";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/session";
 import { getMonthStats, getMonthlyGoal, listChallenges } from "@/lib/store";
-import { sumKm } from "@/lib/stats";
+import { sumKm, summarizeRuns } from "@/lib/stats";
 import { SignInPrompt } from "@/components/SignInPrompt";
 import { SearchBox } from "@/components/SearchBox";
 import { MonthlyGoalInput } from "@/components/MonthlyGoalInput";
@@ -60,13 +60,13 @@ export default async function Home({
 
   // ミニ統計・達成メーター用
   const isCurrentMonth = ymOf(today) === ym;
-  const recordedDays = Object.keys(stats.content).length;
-  // 記入率の分母は「経過日数（今月）／その月の日数（過去月）」
-  const elapsedDays = isCurrentMonth ? jpDateParts(today).day : daysInMonth;
-  const recordPct =
-    elapsedDays > 0
-      ? Math.min(100, Math.round((recordedDays / elapsedDays) * 100))
-      : 0;
+  // 走った回数・連続日数・ベストの日（ご褒美演出の材料）
+  const run = summarizeRuns(stats.distanceByDate, today, isCurrentMonth);
+  // ラン回数ストリップ用（1日〜月末）
+  const monthDays = Array.from(
+    { length: daysInMonth },
+    (_, i) => `${ym}-${String(i + 1).padStart(2, "0")}`,
+  );
   const distancePct =
     goal != null && goal > 0
       ? Math.min(100, Math.round((monthTotal / goal) * 100))
@@ -118,22 +118,22 @@ export default async function Home({
 
         {/* ミニ統計サマリー */}
         <div className="mt-3 grid grid-cols-3 gap-2">
-          <div className="rounded-xl bg-gradient-to-b from-navy/5 to-transparent border border-rule px-2 py-2 text-center">
-            <div className="text-lg font-bold leading-none text-navy tabular-nums">
-              {recordedDays}
-              <span className="text-[10px] font-medium text-gray-400">日</span>
+          <div className="rounded-xl bg-gradient-to-b from-amber-100/60 to-transparent border border-rule px-2 py-2 text-center">
+            <div className="text-lg font-bold leading-none text-amber-600 tabular-nums">
+              {run.runCount}
+              <span className="text-[10px] font-medium text-gray-400">回</span>
             </div>
-            <div className="mt-1 text-[10px] text-gray-500">📝 今月の記入</div>
+            <div className="mt-1 text-[10px] text-gray-500">🏃 今月走った</div>
           </div>
           <div className="rounded-xl bg-gradient-to-b from-sky-500/10 to-transparent border border-rule px-2 py-2 text-center">
             <div className="text-lg font-bold leading-none text-sky-600 tabular-nums">
               {monthTotal.toFixed(1)}
               <span className="text-[10px] font-medium text-gray-400">km</span>
             </div>
-            <div className="mt-1 text-[10px] text-gray-500">🏃 走行距離</div>
+            <div className="mt-1 text-[10px] text-gray-500">📏 走行距離</div>
           </div>
-          <div className="rounded-xl bg-gradient-to-b from-amber-100/60 to-transparent border border-rule px-2 py-2 text-center">
-            <div className="flex items-center justify-center gap-0.5 text-lg font-bold leading-none tabular-nums text-amber-600">
+          <div className="rounded-xl bg-gradient-to-b from-emerald-100/60 to-transparent border border-rule px-2 py-2 text-center">
+            <div className="flex items-center justify-center gap-0.5 text-lg font-bold leading-none tabular-nums text-emerald-600">
               {distancePct != null ? (
                 <>
                   {distancePct}
@@ -152,26 +152,65 @@ export default async function Home({
           </div>
         </div>
 
-        {/* 記入率メーター */}
+        {/* 走った日ストリップ（1日〜月末を1マスずつ。走った日だけ塗る） */}
         <div className="mt-3">
           <div className="mb-1 flex items-baseline justify-between text-[11px]">
-            <span className="text-gray-500">
-              {isCurrentMonth ? "今月ここまでの記入" : "この月の記入"}
-            </span>
-            <span className="font-bold tabular-nums text-navy">
-              {recordedDays}/{elapsedDays}日
-              <span className="ml-1 text-gray-400">({recordPct}%)</span>
+            <span className="text-gray-500">走った日</span>
+            <span className="font-bold tabular-nums text-amber-600">
+              {run.runCount}
+              <span className="text-gray-400">/{daysInMonth}日</span>
             </span>
           </div>
-          <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-100">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-navy to-navy/70 transition-all"
-              style={{ width: `${recordPct}%` }}
-            />
+          <div
+            className="flex gap-[2px]"
+            aria-label={`今月走った日 ${run.runCount}回`}
+          >
+            {monthDays.map((d) => {
+              const km = stats.distanceByDate[d];
+              const isBig = km != null && run.avgKm > 0 && km >= run.avgKm;
+              return (
+                <span
+                  key={d}
+                  title={km != null ? `${d.slice(8)}日 ${km}km` : undefined}
+                  className={`h-2 flex-1 rounded-[2px] ${
+                    km != null
+                      ? isBig
+                        ? "bg-amber-400"
+                        : "bg-sky-500"
+                      : "bg-gray-100"
+                  } ${d === today ? "ring-1 ring-navy/40" : ""}`}
+                />
+              );
+            })}
           </div>
+          {(run.streak >= 2 || run.bestDate) && (
+            <div className="mt-1.5 flex items-center gap-3 text-[11px] text-gray-500">
+              {run.streak >= 2 && (
+                <span>
+                  🔥 {run.streakIsCurrent ? "連続" : "最長"}
+                  <span className="font-bold tabular-nums text-amber-600">
+                    {run.streak}
+                  </span>
+                  日
+                </span>
+              )}
+              {run.bestDate && (
+                <span>
+                  👑 ベスト{" "}
+                  <span className="font-bold tabular-nums text-amber-600">
+                    {run.bestKm.toFixed(1)}km
+                  </span>
+                  <span className="text-gray-400">
+                    （{Number(run.bestDate.slice(8))}日）
+                  </span>
+                </span>
+              )}
+            </div>
+          )}
+
           {distancePct != null && (
             <>
-              <div className="mb-1 mt-2 flex items-baseline justify-between text-[11px]">
+              <div className="mb-1 mt-3 flex items-baseline justify-between text-[11px]">
                 <span className="text-gray-500">距離目標</span>
                 <span className="font-bold tabular-nums text-sky-600">
                   {monthTotal.toFixed(1)}/{goal}km
@@ -218,21 +257,42 @@ export default async function Home({
                 const has = stats.content[date];
                 const goalText = stats.goalByDate[date];
                 const undone = stats.undoneByDate[date] ?? 0;
+                // 走った日のご褒美：👑=月間ベスト / ⭐=平均以上 / 👟=走った日
+                const ranToday = dist != null;
+                const isBest = ranToday && date === run.bestDate && run.runCount >= 2;
+                const isStar =
+                  ranToday && !isBest && run.runCount >= 2 && dist >= run.avgKm;
+                const nth = ranToday ? run.runDates.indexOf(date) + 1 : 0;
                 return (
                   <Link
                     key={date}
                     href={`/journal/${date}`}
                     title={
                       (goalText ? `${month}/${day} ${goalText}` : `${month}/${day}`) +
+                      (ranToday ? ` / 🏃 ${dist.toFixed(1)}km（今月${nth}回目）` : "") +
                       (undone > 0 ? ` / 未完了TODO ${undone}件` : "")
                     }
                     className={`group relative flex min-h-[3.6rem] flex-col overflow-hidden rounded-lg border px-1 pb-1 pt-0.5 transition
+                      ${ranToday ? "run-day" : ""}
                       ${
                         isToday
                           ? "today-glow border-navy bg-navy/5"
-                          : "border-transparent hover:bg-gray-100"
+                          : ranToday
+                            ? "border-amber-300 bg-amber-50/60"
+                            : "border-transparent hover:bg-gray-100"
                       }`}
                   >
+                    {/* 走った日のご褒美マーク */}
+                    {ranToday && (
+                      <span
+                        aria-hidden
+                        className={`absolute bottom-0.5 right-0.5 z-20 text-[11px] leading-none ${
+                          isBest || isStar ? "sparkle-pop" : ""
+                        }`}
+                      >
+                        {isBest ? "👑" : isStar ? "⭐" : "👟"}
+                      </span>
+                    )}
                     {/* 未完了TODOバッジ */}
                     {undone > 0 && (
                       <span
@@ -272,7 +332,7 @@ export default async function Home({
                     )}
                     {/* 距離の数値 */}
                     {dist != null ? (
-                      <span className="relative z-10 mt-auto text-[9px] font-bold leading-none text-sky-600 tabular-nums">
+                      <span className="relative z-10 mt-auto pr-3.5 text-[9px] font-bold leading-none text-amber-700 tabular-nums">
                         {dist.toFixed(1)}
                         <span className="text-[7px]">km</span>
                       </span>
@@ -303,8 +363,8 @@ export default async function Home({
         </div>
       </section>
 
-      {/* やり残しTODO（未完了）まとめ・その場で完了/削除できる */}
-      <UndoneTodos initial={stats.undoneTodos} />
+      {/* TODO：ここから今日のTODOを追加でき、やり残しはその場で完了/削除できる */}
+      <UndoneTodos initial={stats.undoneTodos} today={today} />
 
       <div className="mt-6 flex flex-col items-center gap-3">
         <Link
