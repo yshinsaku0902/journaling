@@ -48,6 +48,11 @@ export function weekdayIndex(s: string): number {
   return toUTC(s).getUTCDay();
 }
 
+// from → to の日数差（to が後なら正）。TODOの繰り越し日数などに使う。
+export function daysBetween(from: string, to: string): number {
+  return Math.round((toUTC(to).getTime() - toUTC(from).getTime()) / 86400000);
+}
+
 export interface JpDateParts {
   year: number;
   month: number;

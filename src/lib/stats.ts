@@ -10,13 +10,19 @@ export interface UndoneTodo {
   kind: ItemKind; // 仕事 / プライベート
 }
 
+// トップのTODOボード。カレンダーの表示月に関係なく全期間から集める。
+// 未完了は月をまたいでも消えず、片づくまで繰り越して追いかける。
+export interface TodoBoard {
+  undone: UndoneTodo[]; // 未完了（全期間・日付の古い順）
+  doneToday: UndoneTodo[]; // 今日完了した分（達成感の演出用）
+}
+
 // カレンダー1ヶ月分の集計（記入済みフラグと日付ごとの距離）。
 export interface MonthStats {
   content: Record<string, boolean>; // 記入済みドット用（date -> true）
   distanceByDate: Record<string, number>; // date -> km（>0 のみ）
   goalByDate: Record<string, string>; // date -> その日の最重点目標（空でない日のみ）
   undoneByDate: Record<string, number>; // date -> 未完了TODO件数（カレンダーのバッジ用）
-  undoneTodos: UndoneTodo[]; // 未完了TODO一覧（日付の古い順）
 }
 
 // 1年分の月別サマリー（/stats の棒グラフ用）。

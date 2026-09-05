@@ -82,6 +82,9 @@ export function DayEditor(props: Props) {
     initialEntry.schedule,
   );
 
+  // チェックを付けた直後のTODO（🎉をひと呼吸だけ出す）
+  const [justDoneId, setJustDoneId] = useState<string | null>(null);
+
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [importing, setImporting] = useState(false);
@@ -172,6 +175,13 @@ export function DayEditor(props: Props) {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
   const deleteItem = (id: string) =>
     setItems((prev) => prev.filter((i) => i.id !== id));
+  // 完了チェック。完了にした瞬間だけ 🎉 を出して達成感を残す。
+  const setDone = (id: string, done: boolean) => {
+    updateItem(id, { done });
+    if (!done) return;
+    setJustDoneId(id);
+    setTimeout(() => setJustDoneId((cur) => (cur === id ? null : cur)), 1000);
+  };
   const toggleKind = (id: string) =>
     setItems((prev) =>
       prev.map((i) =>
@@ -201,6 +211,15 @@ export function DayEditor(props: Props) {
     );
   const deleteSchedule = (id: string) =>
     setSchedule((prev) => prev.filter((s) => s.id !== id));
+
+  // TODOの進捗（本文のある行だけ数える）
+  const { todoTotal, todoDone } = useMemo(() => {
+    const written = items.filter((i) => i.text.trim());
+    return {
+      todoTotal: written.length,
+      todoDone: written.filter((i) => i.done).length,
+    };
+  }, [items]);
 
   const scheduleByHour = useMemo(() => {
     const map = new Map<number, ScheduleItem[]>();
@@ -386,7 +405,19 @@ export function DayEditor(props: Props) {
           />
 
           <div className="mt-5 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-navy">TODO</h3>
+            <h3 className="text-sm font-bold text-navy">
+              TODO
+              {todoTotal > 0 && (
+                <span className="ml-2 text-[11px] font-medium tabular-nums text-gray-400">
+                  {todoDone}/{todoTotal} 完了
+                  {todoDone > 0 && todoDone === todoTotal && (
+                    <span className="sparkle-pop ml-1 inline-block">
+                      🎉 全部やった！
+                    </span>
+                  )}
+                </span>
+              )}
+            </h3>
             <div className="flex items-center gap-2 text-[11px] text-gray-400">
               {ITEM_KINDS.map((k) => (
                 <span key={k.key} className="inline-flex items-center gap-1">
@@ -411,9 +442,7 @@ export function DayEditor(props: Props) {
                   <input
                     type="checkbox"
                     checked={item.done}
-                    onChange={(e) =>
-                      updateItem(item.id, { done: e.target.checked })
-                    }
+                    onChange={(e) => setDone(item.id, e.target.checked)}
                     className="h-5 w-5 shrink-0 cursor-pointer rounded"
                     style={{ accentColor: kindMeta.color }}
                     aria-label="完了"
@@ -428,6 +457,27 @@ export function DayEditor(props: Props) {
                       item.done ? "text-gray-400 line-through" : ""
                     }`}
                   />
+                  {justDoneId === item.id && (
+                    <span
+                      className="sparkle-pop shrink-0 text-base leading-none"
+                      aria-hidden
+                    >
+                      🎉
+                    </span>
+                  )}
+                  {/* チェックボックスと同じ操作を、はっきり分かるボタンでも用意する */}
+                  <button
+                    type="button"
+                    onClick={() => setDone(item.id, !item.done)}
+                    title={item.done ? "未完了に戻す" : "完了にする"}
+                    className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold leading-none transition active:scale-95 ${
+                      item.done
+                        ? "border border-gray-300 bg-white text-gray-400 hover:text-gray-600"
+                        : "border border-emerald-500/70 bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white"
+                    }`}
+                  >
+                    {item.done ? "↩︎戻す" : "✓ 完了"}
+                  </button>
                   <button
                     type="button"
                     onClick={() => toggleKind(item.id)}

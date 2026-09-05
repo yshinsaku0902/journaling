@@ -1,7 +1,12 @@
 import { Fragment } from "react";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/session";
-import { getMonthStats, getMonthlyGoal, listChallenges } from "@/lib/store";
+import {
+  getMonthStats,
+  getMonthlyGoal,
+  listChallenges,
+  listTodoBoard,
+} from "@/lib/store";
 import { sumKm, summarizeRuns } from "@/lib/stats";
 import { SignInPrompt } from "@/components/SignInPrompt";
 import { SearchBox } from "@/components/SearchBox";
@@ -34,6 +39,8 @@ export default async function Home({
   const { year, month } = parseYm(ym)!;
 
   const stats = await getMonthStats(user.id, year, month);
+  // TODOは表示月に関係なく全期間から集める（未完了は月をまたいで繰り越す）
+  const todoBoard = await listTodoBoard(user.id, today);
   const goal = await getMonthlyGoal(user.id, ym);
   const challenges = await listChallenges(user.id);
   const grid = monthGrid(year, month);
@@ -363,8 +370,9 @@ export default async function Home({
         </div>
       </section>
 
-      {/* TODO：ここから今日のTODOを追加でき、やり残しはその場で完了/削除できる */}
-      <UndoneTodos initial={stats.undoneTodos} today={today} />
+      {/* TODO：ここから今日のTODOを追加でき、やり残しはその場で完了/削除できる。
+          未完了は月をまたいでも繰り越して表示し続ける。 */}
+      <UndoneTodos initial={todoBoard} today={today} />
 
       <div className="mt-6 flex flex-col items-center gap-3">
         <Link

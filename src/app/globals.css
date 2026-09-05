@@ -105,11 +105,89 @@ button {
   animation: run-day-ring 3.4s ease-in-out infinite;
 }
 
+/* --- TODOを完了したときの演出 --- */
+/* 完了した行が「スッ」と片づく */
+@keyframes todo-clear {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+    max-height: 3rem;
+  }
+  35% {
+    opacity: 1;
+    transform: translateX(8px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-28px);
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+.todo-clear {
+  overflow: hidden;
+  animation: todo-clear 0.42s ease-in both;
+}
+
+/* 完了の掛け声トースト（出て、少し留まって、消える） */
+@keyframes cheer-toast {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.9);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(0) scale(1.06);
+  }
+  28% {
+    transform: translateY(0) scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+}
+.cheer-toast {
+  animation: cheer-toast 2s ease-out both;
+}
+
+/* やり残しが全部片づいたときの紙吹雪 */
+@keyframes confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translateY(-8vh) rotate(0deg);
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(100vh) rotate(400deg);
+  }
+}
+.confetti-piece {
+  animation: confetti-fall 2s ease-in both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .today-glow,
   .sparkle-pop,
   .bar-rise,
-  .run-day {
+  .run-day,
+  .todo-clear,
+  .cheer-toast,
+  .confetti-piece {
     animation: none;
+  }
+  /* アニメーションを切っていても、完了した行は消えたことが分かるように */
+  .todo-clear {
+    opacity: 0;
+  }
+  .confetti-piece {
+    display: none;
   }
 }
