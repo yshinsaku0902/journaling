@@ -10,6 +10,7 @@ import {
   monthlyKmForYear,
   monthlyRunDaysForYear,
   type MonthStats,
+  type TodoBoard,
   type UndoneTodo,
   type YearRunStats,
 } from "../stats";
@@ -140,7 +141,6 @@ export async function getMonthStats(
   const distanceByDate: Record<string, number> = {};
   const goalByDate: Record<string, string> = {};
   const undoneByDate: Record<string, number> = {};
-  const undoneTodos: UndoneTodo[] = [];
   for (const [date, entry] of Object.entries(user)) {
     if (!date.startsWith(prefix)) continue;
     if (entryHasContent(entry)) content[date] = true;
@@ -151,17 +151,32 @@ export async function getMonthStats(
     for (const it of entry.items) {
       if (!it.done && it.text.trim()) {
         undoneByDate[date] = (undoneByDate[date] ?? 0) + 1;
-        undoneTodos.push({
-          id: it.id,
-          date,
-          text: it.text.trim(),
-          kind: it.kind ?? "work",
-        });
       }
     }
   }
-  undoneTodos.sort((a, b) => a.date.localeCompare(b.date));
-  return { content, distanceByDate, goalByDate, undoneByDate, undoneTodos };
+  return { content, distanceByDate, goalByDate, undoneByDate };
+}
+
+// 全期間の未完了TODO＋今日完了したTODO（表示月に依存しない）。
+export async function listTodoBoard(
+  userId: string,
+  today: string,
+): Promise<TodoBoard> {
+  const db = await readDb();
+  const user = db[userId] ?? {};
+  const undone: UndoneTodo[] = [];
+  const doneToday: UndoneTodo[] = [];
+  for (const [date, entry] of Object.entries(user)) {
+    for (const it of entry.items) {
+      const text = it.text.trim();
+      if (!text) continue;
+      const todo: UndoneTodo = { id: it.id, date, text, kind: it.kind ?? "work" };
+      if (!it.done) undone.push(todo);
+      else if (date === today) doneToday.push(todo);
+    }
+  }
+  undone.sort((a, b) => a.date.localeCompare(b.date));
+  return { undone, doneToday };
 }
 
 export async function getYearRunStats(

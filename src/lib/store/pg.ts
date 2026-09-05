@@ -23,6 +23,7 @@ import {
   monthlyKmForYear,
   monthlyRunDaysForYear,
   type MonthStats,
+  type TodoBoard,
   type UndoneTodo,
   type YearRunStats,
 } from "../stats";
@@ -199,7 +200,6 @@ export async function getMonthStats(
       distanceByDate: {},
       goalByDate: {},
       undoneByDate: {},
-      undoneTodos: [],
     };
 
   const ids = es.map((e) => e.id);
@@ -217,7 +217,6 @@ export async function getMonthStats(
   const distanceByDate: Record<string, number> = {};
   const goalByDate: Record<string, string> = {};
   const undoneByDate: Record<string, number> = {};
-  const undoneTodos: UndoneTodo[] = [];
   for (const e of es) {
     if (e.mostImportantGoal.trim() || e.memo.trim() || e.dailyQuote.trim()) {
       content[e.date] = true;
@@ -236,12 +235,6 @@ export async function getMonthStats(
     content[e.date] = true;
     if (!it.done) {
       undoneByDate[e.date] = (undoneByDate[e.date] ?? 0) + 1;
-      undoneTodos.push({
-        id: String(it.id),
-        date: e.date,
-        text: it.text.trim(),
-        kind: it.kind as ItemKind,
-      });
     }
   }
   for (const s of scs) {
@@ -254,8 +247,52 @@ export async function getMonthStats(
       if (e) content[e.date] = true;
     }
   }
-  undoneTodos.sort((a, b) => a.date.localeCompare(b.date));
-  return { content, distanceByDate, goalByDate, undoneByDate, undoneTodos };
+  return { content, distanceByDate, goalByDate, undoneByDate };
+}
+
+// 全期間の未完了TODO＋今日完了したTODO（表示月に依存しない）。
+// entries と join して1クエリで取り、未完了 / 今日完了に振り分ける。
+export async function listTodoBoard(
+  userId: string,
+  today: string,
+): Promise<TodoBoard> {
+  const d = db();
+  const rows = await d
+    .select({
+      id: journalItems.id,
+      date: entries.date,
+      text: journalItems.text,
+      kind: journalItems.kind,
+      done: journalItems.done,
+      sortOrder: journalItems.sortOrder,
+    })
+    .from(journalItems)
+    .innerJoin(entries, eq(journalItems.entryId, entries.id))
+    .where(
+      and(
+        eq(entries.userId, userId),
+        or(eq(journalItems.done, false), eq(entries.date, today)),
+      ),
+    );
+
+  type Row = (typeof rows)[number];
+  const toTodo = (r: Row): UndoneTodo => ({
+    id: String(r.id),
+    date: r.date,
+    text: r.text.trim(),
+    kind: r.kind as ItemKind,
+  });
+  // 日付の古い順 → その日の並び順
+  const byDate = (a: Row, b: Row) =>
+    a.date.localeCompare(b.date) || a.sortOrder - b.sortOrder;
+
+  const written = rows.filter((r) => r.text.trim());
+  const undone = written.filter((r) => !r.done).sort(byDate).map(toTodo);
+  const doneToday = written
+    .filter((r) => r.done && r.date === today)
+    .sort(byDate)
+    .map(toTodo);
+  return { undone, doneToday };
 }
 
 export async function getYearRunStats(

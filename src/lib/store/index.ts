@@ -2,7 +2,7 @@
 // DATABASE_URL があれば Postgres、無ければローカルのファイルストア（デモ）を使う。
 import type { JournalEntry, EntryPatch, OutlookEventInput } from "../types";
 import type { SearchResult } from "../search";
-import type { MonthStats, YearRunStats } from "../stats";
+import type { MonthStats, TodoBoard, YearRunStats } from "../stats";
 import type { Challenge, ChallengeInput, ChallengePatch } from "../challenge";
 
 export const usePostgres = !!process.env.DATABASE_URL;
@@ -24,6 +24,7 @@ type Backend = {
     year: number,
     month: number,
   ): Promise<MonthStats>;
+  listTodoBoard(userId: string, today: string): Promise<TodoBoard>;
   getYearRunStats(userId: string, year: number): Promise<YearRunStats>;
   getMonthlyGoal(userId: string, ym: string): Promise<number | null>;
   setMonthlyGoal(
@@ -69,6 +70,9 @@ export async function getMonthStats(
   month: number,
 ) {
   return (await backend()).getMonthStats(userId, year, month);
+}
+export async function listTodoBoard(userId: string, today: string) {
+  return (await backend()).listTodoBoard(userId, today);
 }
 export async function getYearRunStats(userId: string, year: number) {
   return (await backend()).getYearRunStats(userId, year);
